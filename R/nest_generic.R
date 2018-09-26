@@ -7,7 +7,7 @@
 #' * Weekly
 #' * Monthly
 #' * Yearly
-#' 
+#'
 #' @param data Tibble/Data Frame with the following columns:
 #' * Account Number (unique identifier)
 #' * Date
@@ -17,7 +17,7 @@
 #'
 #' @examples test
 nest_todo <- function(data) {
-  
+
   day <- nest_core(data, "day")
   week <- nest_core(data, "week")
   month <- nest_core(data, "month")
@@ -32,7 +32,7 @@ nest_todo <- function(data) {
 ######################################################################
 
 #' @title nest_core
-#' @import tidyverse lubridate multidplyr
+#' @import tidyverse lubridate multidplyr lazyeval
 #' @importFrom Hmisc capitalize
 #' @export
 #' @description **Designed to append on numerous descriptive numeric cognostics as columns
@@ -56,18 +56,22 @@ nest_todo <- function(data) {
 #' * `year`
 #'
 #' @return nested tibble
-#' 
+#'
 #' @examples test
 nest_core <- function(data, type) {
-  
+
   tmpColName <- capitalize(type)
   letter <- capitalize(substr(type, 1, 1))
+  groupVariables <- group_vars(data)
+
+  if (is_empty(groupVariables)) {
+    stop("nest_core HALTED: tibble must have at least one group_by variable")
+  }
 
   data %>%
-    select(AccountNumber, Date, Count) %>%
-    group_by(AccountNumber, tmpColName = floor_date(Date, type)) %>%
+    group_by(tmpColName = floor_date(Date, type), add = TRUE) %>%
     summarise(Count = sum(Count)) %>%
-    partition(AccountNumber) %>%
+    partition_(as.lazy_dots(groupVariables)) %>%
     summarise(!!paste0(letter, "_Count") := sum(Count),
               !!paste0(letter, "_Mean") := mean(Count),
               !!paste0(letter, "_Median") := median(Count),
@@ -85,21 +89,21 @@ nest_core <- function(data, type) {
 
               #######################################################################
 
-              !!paste0(letter, "_P") := tsCogs::find_SignedSequence(Count, 1),
-              !!paste0(letter, "_N") := tsCogs::find_SignedSequence(Count, -1),
-              !!paste0(letter, "_Z") := tsCogs::find_SignedSequence(Count, 0),
+              !!paste0(letter, "_P") := overtime::find_SignedSequence(Count, 1),
+              !!paste0(letter, "_N") := overtime::find_SignedSequence(Count, -1),
+              !!paste0(letter, "_Z") := overtime::find_SignedSequence(Count, 0),
 
               #######################################################################
 
-              !!paste0(letter, "_I") := tsCogs::find_LadderSequence(Count, "I"),
-              !!paste0(letter, "_D") := tsCogs::find_LadderSequence(Count, "D"),
-              !!paste0(letter, "_IP") := tsCogs::find_LadderSequence(Count, "IP"),
-              !!paste0(letter, "_DP") := tsCogs::find_LadderSequence(Count, "DP"),
-              !!paste0(letter, "_IN") := tsCogs::find_LadderSequence(Count, "IN"),
-              !!paste0(letter, "_DN") := tsCogs::find_LadderSequence(Count, "DN")
+              !!paste0(letter, "_I") := overtime::find_LadderSequence(Count, "I"),
+              !!paste0(letter, "_D") := overtime::find_LadderSequence(Count, "D"),
+              !!paste0(letter, "_IP") := overtime::find_LadderSequence(Count, "IP"),
+              !!paste0(letter, "_DP") := overtime::find_LadderSequence(Count, "DP"),
+              !!paste0(letter, "_IN") := overtime::find_LadderSequence(Count, "IN"),
+              !!paste0(letter, "_DN") := overtime::find_LadderSequence(Count, "DN")
     ) %>%
     collect() %>%
-    group_by(AccountNumber) %>%
+    group_by(get(groupVariables)) %>%
     nest(.key = "Cogs") %>%
     rename(!!paste0(letter, "_Cognostics") := Cogs)
 }

@@ -18,6 +18,7 @@ Imports: tidyverse,
    magrittr,
    sparklyr,
    multidplyr,
-   lubridate
+   lubridate,
+   lazyeval
 Suggests: knitr,
     rmarkdown

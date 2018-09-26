@@ -1,0 +1,9 @@
+---
+title: "index.Rmd"
+author: "Joe Clark"
+date: "9/25/2018"
+output: html_document
+---
+
+```{r child='./vignettes/overtime.Rmd'}
+```
