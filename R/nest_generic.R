@@ -1,8 +1,8 @@
-#' @title nest_todo
+#' @title make_all_nested_columns
 #' @import tidyverse
 #' @export
 #' @description **Designed to create then join four nested tibbles into one tibble
-#' with `AccountNumber` being the identifier by:**
+#' with grouped variables in `data` being the identifier(s) by:**
 #' * Daily
 #' * Weekly
 #' * Monthly
@@ -16,27 +16,29 @@
 #' @return nested and joined tibble
 #'
 #' @examples test
-nest_todo <- function(data) {
+make_all_nested_columns <- function(data) {
 
-  day <- nest_core(data, "day")
-  week <- nest_core(data, "week")
-  month <- nest_core(data, "month")
-  year <- nest_core(data, "year")
+  groupVariables <- group_vars(data)
+
+  day <- make_nested_columns(data, "day")
+  week <- make_nested_columns(data, "week")
+  month <- make_nested_columns(data, "month")
+  year <- make_nested_columns(data, "year")
 
   day %>%
-    left_join(., week, by = "AccountNumber") %>%
-    left_join(., month, by = "AccountNumber") %>%
-    left_join(., year, by = "AccountNumber")
+    left_join(., week, by = groupVariables) %>%
+    left_join(., month, by = groupVariables) %>%
+    left_join(., year, by = groupVariables)
 }
 
 ######################################################################
 
-#' @title nest_core
+#' @title make_nested_columns
 #' @import tidyverse lubridate multidplyr lazyeval
 #' @importFrom Hmisc capitalize
 #' @export
 #' @description **Designed to append on numerous descriptive numeric cognostics as columns
-#' then nest into a tibble with "AccountNumber" being the identifier.
+#' then nest into a tibble with grouped variables in `data` being the identifier(s).
 #' Based on `type` parameter, will aggregate and create cognostics by:**
 #' * Day
 #' * Week
@@ -58,19 +60,34 @@ nest_todo <- function(data) {
 #' @return nested tibble
 #'
 #' @examples test
-nest_core <- function(data, type) {
+make_nested_columns <- function(data, type) {
+
+  date <- data %>%
+    ungroup() %>%
+    select_if(is.Date) %>%
+    colnames()
+
+  count <- data %>%
+    ungroup() %>%
+    select_if(is_bare_numeric) %>%
+    colnames()
 
   tmpColName <- capitalize(type)
   letter <- capitalize(substr(type, 1, 1))
+
   groupVariables <- group_vars(data)
 
   if (is_empty(groupVariables)) {
-    stop("nest_core HALTED: tibble must have at least one group_by variable")
+    stop("make_nested_columns HALTED: tibble must have at least one group_by variable")
   }
 
+  data <- map(list(is.Date, is_bare_numeric), ~ data %>% select_if(.x)) %>%
+    bind_cols() %>%
+    select(-contains(groupVariables))
+
   data %>%
-    group_by(tmpColName = floor_date(Date, type), add = TRUE) %>%
-    summarise(Count = sum(Count)) %>%
+    group_by(tmpColName = floor_date(get(date), type), add = TRUE) %>%
+    summarise(Count = sum(get(count))) %>%
     partition_(as.lazy_dots(groupVariables)) %>%
     summarise(!!paste0(letter, "_Count") := sum(Count),
               !!paste0(letter, "_Mean") := mean(Count),
@@ -103,7 +120,7 @@ nest_core <- function(data, type) {
               !!paste0(letter, "_DN") := overtime::find_LadderSequence(Count, "DN")
     ) %>%
     collect() %>%
-    group_by(get(groupVariables)) %>%
+    group_by_at(vars(groupVariables)) %>%
     nest(.key = "Cogs") %>%
     rename(!!paste0(letter, "_Cognostics") := Cogs)
 }

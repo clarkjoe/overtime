@@ -2,18 +2,12 @@ library(overtime)
 library(magrittr)
 library(multidplyr)
 library(lazyeval)
+library(tidyverse)
+library(lubridate)
 
 data <- readRDS('./data/rawData.rds')
 
-data %<>% group_by(AccountNumber) %>%
-  rename(Greg = AccountNumber)
-
-groupVariables <- group_vars(data)
-
 data %>%
-  partition_(as.lazy_dots(groupVariables)) %>%
-  collect()
-
-data %>%
-  nest_core('day')
+  rename(Grouping = AccountNumber, Dock = Date, Number = Count) %>%
+  make_nested_columns("day")
 

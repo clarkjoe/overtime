@@ -1,4 +1,4 @@
-#' @title nest_append_interval
+#' @title append_nested_interval_columns
 #' @import tidyverse
 #' @export
 #' @description **Designed to create cognostics by certain interval/ratio in the past**
@@ -18,17 +18,22 @@
 #' @return nested tibble
 #'
 #' @examples test
-nest_append_interval <- function(nestTib, rawData, type, interval) {
+append_nested_interval_columns <- function(nestTib, rawData, type, interval) {
 
-  organizedData <- nest_interval(rawData, type, interval)
+  groupVariables <- group_vars(data)
+  if (is_empty(groupVariables)) {
+    stop("append_nested_interval_columns HALTED: tibble must have at least one group_by variable")
+  }
+
+  organizedData <- make_nested_interval_columns(rawData, type, interval)
 
   nestTib %>%
-    left_join(organizedData, by = "AccountNumber")
+    left_join(organizedData, by = groupVariables)
 }
 
 ######################################################################
 
-#' @title nest_interval
+#' @title make_nested_interval_columns
 #' @import tidyverse lubridate
 #' @importFrom purrr map2
 #' @importFrom Hmisc capitalize
@@ -49,16 +54,19 @@ nest_append_interval <- function(nestTib, rawData, type, interval) {
 #' @return nested joined tibble
 #'
 #' @examples test
-nest_interval <- function(data, type, interval) {
+make_nested_interval_columns <- function(data, type, interval) {
 
   derefType <- "type"
 
   typeCapital <- capitalize(type)
   letter <- capitalize(substr(type, 1, 1))
 
+  groupVariables <- group_vars(data)
+  if (is_empty(groupVariables)) {
+    stop("make_nested_interval_columns HALTED: tibble must have at least one group_by variable")
+  }
+
   intervalData <- data %>%
-    select(AccountNumber, Date, Count) %>%
-    group_by(AccountNumber) %>%
     filter(Date %within% ((max(Date) - do.call(get(derefType), list(interval * 2)))
                           %--% max(Date)))
 
@@ -69,13 +77,13 @@ nest_interval <- function(data, type, interval) {
 
   rightData <- allowedData %>%
     filter(Date >= ((max(Date) - do.call(get(derefType), list(interval))))) %>%
-    nest_core_interval(type, interval, "R")
+    make_nested_interval_columns_work(type, interval, "R")
 
   leftData <- allowedData %>%
     filter(Date < ((max(Date) - do.call(get(derefType), list(interval))))) %>%
-    nest_core_interval(type, interval, "L")
+    make_nested_interval_columns_work(type, interval, "L")
 
-  ratioData <- left_join(leftData, rightData, by = "AccountNumber")
+  ratioData <- left_join(leftData, rightData, by = groupVariables)
 
   ratioData %<>%
     mutate(
@@ -83,22 +91,22 @@ nest_interval <- function(data, type, interval) {
                                                    ratioData[[3]],
                                                    ~ as_tibble(.y/.x) %>%
                                                      rename_all(funs(sub('_.', "_Ratio", .))))) %>%
-    select(AccountNumber, contains("Ratio"))
+    select(groupVariables, contains("Ratio"))
 
   intervalData %<>%
     filter(min(Date) == max(Date) - do.call(get(derefType),
                                             list(interval * 2))) %>%
-    nest_core_interval(type, interval, "A")
+    make_nested_interval_columns_work(type, interval, "A")
 
-  left_join(intervalData, leftData, by = "AccountNumber") %>%
-    left_join(., rightData, by = "AccountNumber") %>%
-    left_join(., ratioData, by = "AccountNumber")
+  left_join(intervalData, leftData, by = groupVariables) %>%
+    left_join(., rightData, by = groupVariables) %>%
+    left_join(., ratioData, by = groupVariables)
 }
 
 ######################################################################
 
-#' @title nest_core_interval
-#' @import tidyverse Hmisc multidplyr
+#' @title make_nested_interval_columns_work
+#' @import tidyverse Hmisc multidplyr lazyeval
 #' @export
 #' @description **Designed to create cognostics by certain interval/ratio in the past**
 #'
@@ -120,14 +128,41 @@ nest_interval <- function(data, type, interval) {
 #' @return nested tibble
 #'
 #' @examples test
-nest_core_interval <- function(data, type, interval, divide) {
+ make_nested_interval_columns_work <- function(data, type, interval, divide) {
+
+  date <- data %>%
+   ungroup() %>%
+   select_if(is.Date) %>%
+   colnames()
+
+  count <- data %>%
+   ungroup() %>%
+   select_if(is_bare_numeric) %>%
+   colnames()
+
+  tmpColName <- capitalize(type)
+  letter <- capitalize(substr(type, 1, 1))
+
+  groupVariables <- group_vars(data)
+
+  if (is_empty(groupVariables)) {
+   stop("make_nested_columns HALTED: tibble must have at least one group_by variable")
+  }
+
+  data <- map(list(is.Date, is_bare_numeric), ~ data %>% select_if(.x)) %>%
+   bind_cols() %>%
+   select(-contains(groupVariables))
 
   letter <- capitalize(substr(type, 1, 1))
 
+  groupVariables <- group_vars(data)
+  if (is_empty(groupVariables)) {
+    stop("make_nested_interval_columns_work HALTED: tibble must have at least one group_by variable")
+  }
+
   data %>%
-    select(AccountNumber, Date, Count) %>%
     ungroup() %>%
-    partition(AccountNumber) %>%
+    partition_(as.lazy_dots(groupVariables)) %>%
     summarise(!!paste0(letter, interval, "_", divide, "_Count") := sum(Count),
               !!paste0(letter, interval, "_", divide, "_Mean") := mean(Count),
               !!paste0(letter, interval, "_", divide, "_Median") := median(Count),
@@ -159,7 +194,7 @@ nest_core_interval <- function(data, type, interval, divide) {
               !!paste0(letter, interval, "_", divide, "_DN") := overtime::find_LadderSequence(Count, "DN")
     ) %>%
     collect() %>%
-    group_by(AccountNumber) %>%
+    group_by_at(vars(groupVariables)) %>%
     nest(.key = "Cogs") %>%
     rename(!!paste0(letter, interval, "_", divide, "_Cognostics") := Cogs)
 }
