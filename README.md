@@ -1,5 +1,4 @@
 # overtime
-======
 
 ## Installation
 `devtools::install_github("clarkjoe/overtime")`
@@ -26,8 +25,6 @@ The intent of overtime is to help machine learning developers generate lots of s
 16. Largest decreasing positive sequence
 17. Largest increasing negative sequence
 18. Largest decreasing negative sequence
-
-======
 
 The actual content of the package is smaller than most, but its scope of usability is a wide net. Below is a simple example:
 
