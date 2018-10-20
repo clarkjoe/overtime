@@ -1,10 +1,19 @@
-# overtime
-======
-
-## Installation
-`devtools::install_github("clarkjoe/overtime")`
+---
+title: "overtime.Rmd"
+author: "Joe Clark"
+date: "9/25/2018"
+output: html_document
+---
+```{r setup, include=FALSE, warning=FALSE, message=FALSE, comment=FALSE, error=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(overtime)
+library(DT)
+```
 
 ## Getting Started
+
+-----
 
 The intent of overtime is to help machine learning developers generate lots of summary statistics extremely quickly. While there are many default summary statistics initially processed, including more will be available in future releases. The default summary statistics are:
 
@@ -27,16 +36,14 @@ The intent of overtime is to help machine learning developers generate lots of s
 17. Largest increasing negative sequence
 18. Largest decreasing negative sequence
 
-======
+The actual content of the package is smaller than most, but its scope of usability is a wide net. Below is a simple example:  
 
-The actual content of the package is smaller than most, but its scope of usability is a wide net. Below is a simple example:
-
-```R
+```{r, echo=TRUE, warning=FALSE, message=FALSE, comment=FALSE, error=FALSE}
 data <- readRDS('../data/rawData.rds')
 
 nestedData <- data %>%
   overtime_by("day") %>%
-  overtime_by_interval("days", 10) %>%
+  overtime_by_interval('days', 10) %>%
   overtime_get()
 
 unnestedData <- nestedData %>%
@@ -45,3 +52,18 @@ unnestedData <- nestedData %>%
 
 BOOM! It's that simple.
 
+## What it looks like
+
+-----
+
+### nestedData
+
+```{r, echo=FALSE}
+glimpse(nestedData)
+```
+
+### unnestedData
+
+```{r, echo=FALSE}
+glimpse(unnestedData)
+```
