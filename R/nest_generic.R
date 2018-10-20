@@ -18,17 +18,13 @@
 #' @examples test
 make_all_nested_columns <- function(data) {
 
-  groupVariables <- group_vars(data)
+  complexObject <- data %>%
+    make_nested_columns("day") %>%
+    make_nested_columns("week") %>%
+    make_nested_columns("month") %>%
+    make_nested_columns("year")
 
-  day <- make_nested_columns(data, "day")
-  week <- make_nested_columns(data, "week")
-  month <- make_nested_columns(data, "month")
-  year <- make_nested_columns(data, "year")
-
-  day %>%
-    left_join(., week, by = groupVariables) %>%
-    left_join(., month, by = groupVariables) %>%
-    left_join(., year, by = groupVariables)
+  return(complexObject)
 }
 
 ######################################################################
@@ -62,6 +58,15 @@ make_all_nested_columns <- function(data) {
 #' @examples test
 make_nested_columns <- function(data, type) {
 
+  complex = FALSE
+  tib <- NULL
+
+  if (is_bare_list(data)) {
+    tib <- data[[1]]
+    data <- data[[2]]
+    complex = TRUE
+  }
+
   date <- data %>%
     ungroup() %>%
     select_if(is.Date) %>%
@@ -85,7 +90,7 @@ make_nested_columns <- function(data, type) {
     bind_cols() %>%
     select(-contains(groupVariables))
 
-  data %>%
+  returnTibble <- data %>%
     group_by(tmpColName = floor_date(get(date), type), add = TRUE) %>%
     summarise(Count = sum(get(count))) %>%
     partition_(as.lazy_dots(groupVariables)) %>%
@@ -123,4 +128,33 @@ make_nested_columns <- function(data, type) {
     group_by_at(vars(groupVariables)) %>%
     nest(.key = "Cogs") %>%
     rename(!!paste0(letter, "_Cognostics") := Cogs)
+
+  if (complex) {
+    returnTibble %<>%
+      left_join(tib, groupVariables)
+    return(list(returnTibble, data))
+  }
+  else {
+    return(list(returnTibble, data))
+  }
 }
+
+######################################################################
+
+#' @title extract_nested_columns
+#' @import tidyverse purrr magrittr
+#' @export
+#' @description **Designed to unnest a nested tibble, which is a list of lists**
+#'
+#' @param data Tibble/Data Frame with the following columns:
+#' * Account Number (unique identifier)
+#' * Date
+#' * Count
+#'
+#' @return unnested tibble
+#'
+#' @examples test
+extract_nested_columns <- function(data) {
+  return(data[[1]])
+}
+

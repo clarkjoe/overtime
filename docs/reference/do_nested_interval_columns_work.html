@@ -6,7 +6,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Function reference • overtime</title>
+<title>do_nested_interval_columns_work — do_nested_interval_columns_work • overtime</title>
 
 <!-- jquery -->
 <script src="https://code.jquery.com/jquery-3.1.0.min.js" integrity="sha384-nrOSfDHtoPMzJHjVTdCopGqIqeYETSXhZDFyniQ8ZHcVy08QesyHcnOUpMpqnmWq" crossorigin="anonymous"></script>
@@ -30,7 +30,10 @@
 
 
 
-<meta property="og:title" content="Function reference" />
+<meta property="og:title" content="do_nested_interval_columns_work — do_nested_interval_columns_work" />
+
+<meta property="og:description" content="**Designed to create cognostics by certain interval/ratio in the past**" />
+<meta name="twitter:card" content="summary" />
 
 
 
@@ -46,7 +49,7 @@
   </head>
 
   <body>
-    <div class="container template-reference-index">
+    <div class="container template-reference-topic">
       <header>
       <div class="navbar navbar-default navbar-fixed-top" role="navigation">
   <div class="container">
@@ -90,96 +93,70 @@
       </header>
 
 <div class="row">
-  <div class="contents col-md-9">
+  <div class="col-md-9 contents">
     <div class="page-header">
-      <h1>Reference</h1>
+    <h1>do_nested_interval_columns_work</h1>
+    
+    <div class="hidden name"><code>do_nested_interval_columns_work.Rd</code></div>
     </div>
 
-    <table class="ref-index">
+    <div class="ref-description">
+    
+    <p>**Designed to create cognostics by certain interval/ratio in the past**</p>
+    
+    </div>
 
-    <colgroup>
-      
-      <col class="alias" />
-      <col class="title" />
-    </colgroup>
-
-    <tbody>
-      <tr>
-        <th colspan="2">
-          <h2 id="section-all-functions" class="hasAnchor"><a href="#section-all-functions" class="anchor"></a>All functions</h2>
-          <p class="section-desc"></p>
-        </th>
-      </tr>
-      <tr>
-        
-        <td>
-          <p><code><a href="do_nested_interval_columns_work.html">do_nested_interval_columns_work()</a></code> </p>
-        </td>
-        <td><p>do_nested_interval_columns_work</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="extract_nested_interval_columns.html">extract_nested_interval_columns()</a></code> </p>
-        </td>
-        <td><p>extract_nested_interval_columns</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="find_LadderSequence.html">find_LadderSequence()</a></code> </p>
-        </td>
-        <td><p>find_LadderSequence</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="find_SignedSequence.html">find_SignedSequence()</a></code> </p>
-        </td>
-        <td><p>find_SignedSequence</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="make_all_nested_columns.html">make_all_nested_columns()</a></code> </p>
-        </td>
-        <td><p>make_all_nested_columns</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="make_nested_columns.html">make_nested_columns()</a></code> </p>
-        </td>
-        <td><p>make_nested_columns</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="make_nested_interval_columns.html">make_nested_interval_columns()</a></code> </p>
-        </td>
-        <td><p>make_nested_interval_columns</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="nest_interval_unnest.html">nest_interval_unnest()</a></code> </p>
-        </td>
-        <td><p>nest_interval_unnest</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="normalize_weekly.html">normalize_weekly()</a></code> </p>
-        </td>
-        <td><p>normalize_weekly</p></td>
-      </tr><tr>
-        
-        <td>
-          <p><code><a href="prepare_nested_interval_columns.html">prepare_nested_interval_columns()</a></code> </p>
-        </td>
-        <td><p>prepare_nested_interval_columns</p></td>
-      </tr>
-    </tbody>
+    <pre class="usage"><span class='fu'>do_nested_interval_columns_work</span>(<span class='no'>data</span>, <span class='no'>type</span>, <span class='no'>interval</span>, <span class='no'>divide</span>)</pre>
+    
+    <h2 class="hasAnchor" id="arguments"><a class="anchor" href="#arguments"></a>Arguments</h2>
+    <table class="ref-arguments">
+    <colgroup><col class="name" /><col class="desc" /></colgroup>
+    <tr>
+      <th>data</th>
+      <td><p>Tibble/Data Frame with the following columns:
+* Account Number (unique identifier)
+* Date
+* Count</p></td>
+    </tr>
+    <tr>
+      <th>type</th>
+      <td><p>Must be one of following strings:
+* `years`
+* `months`
+* `weeks`
+* `days`</p></td>
+    </tr>
+    <tr>
+      <th>interval</th>
+      <td><p>Must be positive integer excluding zero</p></td>
+    </tr>
+    <tr>
+      <th>divide</th>
+      <td><p>Must be one of following strings:
+* `A`
+* `R`
+* `L`</p></td>
+    </tr>
     </table>
-  </div>
+    
+    <h2 class="hasAnchor" id="value"><a class="anchor" href="#value"></a>Value</h2>
 
+    <p>nested tibble</p>
+    
+
+    <h2 class="hasAnchor" id="examples"><a class="anchor" href="#examples"></a>Examples</h2>
+    <pre class="examples"><div class='input'><span class='no'>test</span></div><div class='output co'>#&gt; <span class='error'>Error in eval(expr, envir, enclos): object 'test' not found</span></div></pre>
+  </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="sidebar">
     <h2>Contents</h2>
     <ul class="nav nav-pills nav-stacked">
-      <li><a href="#section-all-functions">All functions</a></li>
+      <li><a href="#arguments">Arguments</a></li>
+      
+      <li><a href="#value">Value</a></li>
+      
+      <li><a href="#examples">Examples</a></li>
     </ul>
+
   </div>
 </div>
 

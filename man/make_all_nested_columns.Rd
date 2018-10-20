@@ -4,7 +4,7 @@
 \alias{make_all_nested_columns}
 \title{make_all_nested_columns}
 \usage{
-make_all_nested_columns(data)
+make_all_nested_columns(data, append = TRUE)
 }
 \arguments{
 \item{data}{Tibble/Data Frame with the following columns:

@@ -40,12 +40,7 @@ The actual content of the package is smaller than most, but its scope of usabili
 data <- readRDS('../data/rawData.rds')
 
 nestedData <- data %>%
-   make_all_nested_columns() %>%
-   nest_append_interval(data, "years", 1) %>%
-   nest_append_interval(data, "months", 6) %>%
-   nest_append_interval(data, "months", 3) %>%
-   nest_append_interval(data, "weeks", 6) %>%
-   nest_append_interval(data, "days", 14)
+   make_all_nested_columns()
 
 cogsDataUnested <- nestedData %>%
    nest_interval_unnest()

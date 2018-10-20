@@ -1,4 +1,4 @@
-#' @title append_nested_interval_columns
+#' @title make_nested_interval_columns
 #' @import tidyverse
 #' @export
 #' @description **Designed to create cognostics by certain interval/ratio in the past**
@@ -18,22 +18,38 @@
 #' @return nested tibble
 #'
 #' @examples test
-append_nested_interval_columns <- function(nestTib, rawData, type, interval) {
+make_nested_interval_columns <- function(complexObject, intervalType, intervalLength) {
 
-  groupVariables <- group_vars(data)
-  if (is_empty(groupVariables)) {
-    stop("append_nested_interval_columns HALTED: tibble must have at least one group_by variable")
+  if (is_bare_list(complexObject)) {
+    tib <- complexObject[[1]]
+    data <- complexObject[[2]]
+
+    groupVariables <- group_vars(data)
+    if (is_empty(groupVariables)) {
+      stop("append_nested_interval_columns HALTED: tibble must have at least one group_by variable")
+    }
+
+    twoList <- data %>%
+      prepare_nested_interval_columns(intervalType, intervalLength)
+    newTibble <- left_join(twoList[[1]], tib, groupVariables)
+    return(list(newTibble, data))
   }
+  else {
+    groupVariables <- group_vars(complexObject)
+    if (is_empty(groupVariables)) {
+      stop("append_nested_interval_columns HALTED: tibble must have at least one group_by variable")
+    }
 
-  organizedData <- make_nested_interval_columns(rawData, type, interval)
+    returnTibble <- complexObject %>%
+      prepare_nested_interval_columns(intervalType, intervalLength)
 
-  nestTib %>%
-    left_join(organizedData, by = groupVariables)
+    return(returnTibble)
+  }
 }
 
 ######################################################################
 
-#' @title make_nested_interval_columns
+#' @title prepare_nested_interval_columns
 #' @import tidyverse lubridate
 #' @importFrom purrr map2
 #' @importFrom Hmisc capitalize
@@ -54,12 +70,14 @@ append_nested_interval_columns <- function(nestTib, rawData, type, interval) {
 #' @return nested joined tibble
 #'
 #' @examples test
-make_nested_interval_columns <- function(data, type, interval) {
+prepare_nested_interval_columns <- function(data, intervalType, intervalLength) {
 
-  derefType <- "type"
+  date <- data %>%
+    ungroup() %>%
+    select_if(is.Date) %>%
+    colnames()
 
-  typeCapital <- capitalize(type)
-  letter <- capitalize(substr(type, 1, 1))
+  letter <- capitalize(substr(intervalType, 1, 1))
 
   groupVariables <- group_vars(data)
   if (is_empty(groupVariables)) {
@@ -67,45 +85,44 @@ make_nested_interval_columns <- function(data, type, interval) {
   }
 
   intervalData <- data %>%
-    filter(Date %within% ((max(Date) - do.call(get(derefType), list(interval * 2)))
-                          %--% max(Date)))
+    filter(get(date) %within% ((max(get(date)) - invoke(get(intervalType), intervalLength * 2)) %--% max(get(date))))
 
   allowedData <- intervalData %>%
     # Remove all accounts that don't meet ENTIRE interval requirements
-    filter(min(Date) == max(Date) - do.call(get(derefType),
-                                            list(interval * 2)))
+    filter(min(get(date)) == max(get(date)) - invoke(get(intervalType), intervalLength * 2))
 
   rightData <- allowedData %>%
-    filter(Date >= ((max(Date) - do.call(get(derefType), list(interval))))) %>%
-    make_nested_interval_columns_work(type, interval, "R")
+    filter(get(date) >= (max(get(date)) - invoke(intervalType, intervalLength))) %>%
+    do_nested_interval_columns_work(intervalType, intervalLength, "R")
 
   leftData <- allowedData %>%
-    filter(Date < ((max(Date) - do.call(get(derefType), list(interval))))) %>%
-    make_nested_interval_columns_work(type, interval, "L")
+    filter(get(date) < (max(get(date)) - invoke(intervalType, intervalLength))) %>%
+    do_nested_interval_columns_work(intervalType, intervalLength, "L")
 
   ratioData <- left_join(leftData, rightData, by = groupVariables)
 
   ratioData %<>%
     mutate(
-      !!paste0(letter, interval, "_Ratios"):= map2(ratioData[[2]],
+      !!paste0(letter, intervalLength, "_Ratios") := map2(ratioData[[2]],
                                                    ratioData[[3]],
                                                    ~ as_tibble(.y/.x) %>%
                                                      rename_all(funs(sub('_.', "_Ratio", .))))) %>%
     select(groupVariables, contains("Ratio"))
 
   intervalData %<>%
-    filter(min(Date) == max(Date) - do.call(get(derefType),
-                                            list(interval * 2))) %>%
-    make_nested_interval_columns_work(type, interval, "A")
+    filter(min(get(date)) == max(get(date)) - invoke(intervalType, intervalLength * 2)) %>%
+    do_nested_interval_columns_work(intervalType, intervalLength, "A")
 
-  left_join(intervalData, leftData, by = groupVariables) %>%
+  returnTibble <- left_join(intervalData, leftData, by = groupVariables) %>%
     left_join(., rightData, by = groupVariables) %>%
     left_join(., ratioData, by = groupVariables)
+
+  return(list(returnTibble, data))
 }
 
 ######################################################################
 
-#' @title make_nested_interval_columns_work
+#' @title do_nested_interval_columns_work
 #' @import tidyverse Hmisc multidplyr lazyeval
 #' @export
 #' @description **Designed to create cognostics by certain interval/ratio in the past**
@@ -128,70 +145,57 @@ make_nested_interval_columns <- function(data, type, interval) {
 #' @return nested tibble
 #'
 #' @examples test
- make_nested_interval_columns_work <- function(data, type, interval, divide) {
-
-  date <- data %>%
-   ungroup() %>%
-   select_if(is.Date) %>%
-   colnames()
-
-  count <- data %>%
-   ungroup() %>%
-   select_if(is_bare_numeric) %>%
-   colnames()
-
-  tmpColName <- capitalize(type)
-  letter <- capitalize(substr(type, 1, 1))
-
-  groupVariables <- group_vars(data)
-
-  if (is_empty(groupVariables)) {
-   stop("make_nested_columns HALTED: tibble must have at least one group_by variable")
-  }
-
-  data <- map(list(is.Date, is_bare_numeric), ~ data %>% select_if(.x)) %>%
-   bind_cols() %>%
-   select(-contains(groupVariables))
-
-  letter <- capitalize(substr(type, 1, 1))
+do_nested_interval_columns_work <- function(data, type, interval, divide) {
 
   groupVariables <- group_vars(data)
   if (is_empty(groupVariables)) {
     stop("make_nested_interval_columns_work HALTED: tibble must have at least one group_by variable")
   }
 
+  data %<>%
+    rename(count = data %>%
+             ungroup() %>%
+             select_if(is_bare_numeric) %>%
+             colnames())
+
+  letter <- capitalize(substr(type, 1, 1))
+
+  data <- map(list(is.Date, is_bare_numeric), ~ data %>% select_if(.x)) %>%
+   bind_cols() %>%
+   select(-contains(groupVariables))
+
   data %>%
     ungroup() %>%
     partition_(as.lazy_dots(groupVariables)) %>%
-    summarise(!!paste0(letter, interval, "_", divide, "_Count") := sum(Count),
-              !!paste0(letter, interval, "_", divide, "_Mean") := mean(Count),
-              !!paste0(letter, interval, "_", divide, "_Median") := median(Count),
-              !!paste0(letter, interval, "_", divide, "_SD") := sd(Count),
-              !!paste0(letter, interval, "_", divide, "_Max") := max(Count),
-              !!paste0(letter, interval, "_", divide, "_Min") := min(Count),
-              !!paste0(letter, interval, "_", divide, "_CV") := (sd(Count) / mean(Count)),
+    summarise(!!paste0(letter, interval, "_", divide, "_Count") := sum(count),
+              !!paste0(letter, interval, "_", divide, "_Mean") := mean(count),
+              !!paste0(letter, interval, "_", divide, "_Median") := median(count),
+              !!paste0(letter, interval, "_", divide, "_SD") := sd(count),
+              !!paste0(letter, interval, "_", divide, "_Max") := max(count),
+              !!paste0(letter, interval, "_", divide, "_Min") := min(count),
+              !!paste0(letter, interval, "_", divide, "_CV") := (sd(count) / mean(count)),
 
               #######################################################################
 
-              #!!paste0(letter, interval, "_", divide, "_SLP") := (lm(Count ~ as.numeric(Date),
+              #!!paste0(letter, interval, "_", divide, "_SLP") := (lm(count ~ as.numeric(get(date)),
               #                                                       data = .)[["coefficients"]][2]),
-              !!paste0(letter, interval, "_", divide, "_OOC2") := (sum(Count >= (mean(Count) + (2 * sd(Count))))),
-              !!paste0(letter, interval, "_", divide, "_OOC3") := (sum(Count >= (mean(Count) + (3 * sd(Count))))),
+              !!paste0(letter, interval, "_", divide, "_OOC2") := (sum(count >= (mean(count) + (2 * sd(count))))),
+              !!paste0(letter, interval, "_", divide, "_OOC3") := (sum(count >= (mean(count) + (3 * sd(count))))),
 
               #######################################################################
 
-              !!paste0(letter, interval, "_", divide, "_P") := overtime::find_SignedSequence(Count, 1),
-              !!paste0(letter, interval, "_", divide, "_N") := overtime::find_SignedSequence(Count, -1),
-              !!paste0(letter, interval, "_", divide, "_Z") := overtime::find_SignedSequence(Count, 0),
+              !!paste0(letter, interval, "_", divide, "_P") := overtime::find_SignedSequence(count, 1),
+              !!paste0(letter, interval, "_", divide, "_N") := overtime::find_SignedSequence(count, -1),
+              !!paste0(letter, interval, "_", divide, "_Z") := overtime::find_SignedSequence(count, 0),
 
               #######################################################################
 
-              !!paste0(letter, interval, "_", divide, "_I") := overtime::find_LadderSequence(Count, "I"),
-              !!paste0(letter, interval, "_", divide, "_D") := overtime::find_LadderSequence(Count, "D"),
-              !!paste0(letter, interval, "_", divide, "_IP") := overtime::find_LadderSequence(Count, "IP"),
-              !!paste0(letter, interval, "_", divide, "_DP") := overtime::find_LadderSequence(Count, "DP"),
-              !!paste0(letter, interval, "_", divide, "_IN") := overtime::find_LadderSequence(Count, "IN"),
-              !!paste0(letter, interval, "_", divide, "_DN") := overtime::find_LadderSequence(Count, "DN")
+              !!paste0(letter, interval, "_", divide, "_I") := overtime::find_LadderSequence(count, "I"),
+              !!paste0(letter, interval, "_", divide, "_D") := overtime::find_LadderSequence(count, "D"),
+              !!paste0(letter, interval, "_", divide, "_IP") := overtime::find_LadderSequence(count, "IP"),
+              !!paste0(letter, interval, "_", divide, "_DP") := overtime::find_LadderSequence(count, "DP"),
+              !!paste0(letter, interval, "_", divide, "_IN") := overtime::find_LadderSequence(count, "IN"),
+              !!paste0(letter, interval, "_", divide, "_DN") := overtime::find_LadderSequence(count, "DN")
     ) %>%
     collect() %>%
     group_by_at(vars(groupVariables)) %>%
