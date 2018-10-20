@@ -1,70 +1,40 @@
-#' @title make_all_nested_columns
-#' @import tidyverse
-#' @export
-#' @description **Designed to create then join four nested tibbles into one tibble
-#' with grouped variables in `data` being the identifier(s) by:**
-#' * Daily
-#' * Weekly
-#' * Monthly
-#' * Yearly
-#'
-#' @param data Tibble/Data Frame with the following columns:
-#' * Account Number (unique identifier)
-#' * Date
-#' * Count
-#'
-#' @return nested and joined tibble
-#'
-#' @examples test
-make_all_nested_columns <- function(data) {
-
-  complexObject <- data %>%
-    make_nested_columns("day") %>%
-    make_nested_columns("week") %>%
-    make_nested_columns("month") %>%
-    make_nested_columns("year")
-
-  return(complexObject)
-}
-
-######################################################################
-
-#' @title make_nested_columns
+#' @title overtime_by
 #' @import tidyverse lubridate multidplyr lazyeval
 #' @importFrom Hmisc capitalize
 #' @export
-#' @description **Designed to append on numerous descriptive numeric cognostics as columns
+#' @description **Designed to append on numerous summary statistics as columns
 #' then nest into a tibble with grouped variables in `data` being the identifier(s).
 #' Based on `type` parameter, will aggregate and create cognostics by:**
 #' * Day
 #' * Week
 #' * Month
 #' * Year
+#' To allow further appending, the newly created nested tibble and the original data
+#' will be return in a list.
 #'
-#' @param data Tibble/Data Frame with the following columns:
-#' * Account Number (unique identifier)
-#' * Date
-#' * Count
-#' @param type All meaningfull specifications in
-#' English language are supported.
+#' @param data Nested tibble or non-nested tibble with the following columns:
+#' * A unique identifier (usually made by a `group_by`` call)
+#' * A continious date column
+#' * A numeric column, one observation per date per unique identifier
+#' @param type All meaningfull specifications in English language are supported.
 #' Stable arguments are:
 #' * `day`
 #' * `week`
 #' * `month`
 #' * `year`
 #'
-#' @return nested tibble
+#' @return List that contains [nestedTibble, tibble]
 #'
-#' @examples test
-make_nested_columns <- function(data, type) {
+#' @examples NULL
+overtime_by <- function(data, type) {
 
-  complex = FALSE
-  tib <- NULL
+  dataIsList = FALSE
+  nestedTibble <- NULL
 
   if (is_bare_list(data)) {
-    tib <- data[[1]]
+    nestedTibble <- data[[1]]
     data <- data[[2]]
-    complex = TRUE
+    dataIsList = TRUE
   }
 
   date <- data %>%
@@ -77,13 +47,12 @@ make_nested_columns <- function(data, type) {
     select_if(is_bare_numeric) %>%
     colnames()
 
-  tmpColName <- capitalize(type)
+  floorDateColumn <- capitalize(type)
   letter <- capitalize(substr(type, 1, 1))
 
   groupVariables <- group_vars(data)
-
   if (is_empty(groupVariables)) {
-    stop("make_nested_columns HALTED: tibble must have at least one group_by variable")
+    stop("overtime_by HALTED: data must have at least one group_by variable")
   }
 
   data <- map(list(is.Date, is_bare_numeric), ~ data %>% select_if(.x)) %>%
@@ -91,7 +60,7 @@ make_nested_columns <- function(data, type) {
     select(-contains(groupVariables))
 
   returnTibble <- data %>%
-    group_by(tmpColName = floor_date(get(date), type), add = TRUE) %>%
+    group_by(floorDateColumn = floor_date(get(date), type), add = TRUE) %>%
     summarise(Count = sum(get(count))) %>%
     partition_(as.lazy_dots(groupVariables)) %>%
     summarise(!!paste0(letter, "_Count") := sum(Count),
@@ -104,7 +73,7 @@ make_nested_columns <- function(data, type) {
 
               #######################################################################
 
-              # !!paste0(letter, "_SLP") := (lm(Count ~ as.numeric(tmpColName),
+              # !!paste0(letter, "_SLP") := (lm(Count ~ as.numeric(floorDateColumn),
               #                                 data = .)[["coefficients"]][2]),
               !!paste0(letter, "_OOC2") := (sum(Count >= (mean(Count) + (2 * sd(Count))))),
               !!paste0(letter, "_OOC3") := (sum(Count >= (mean(Count) + (3 * sd(Count))))),
@@ -129,32 +98,26 @@ make_nested_columns <- function(data, type) {
     nest(.key = "Cogs") %>%
     rename(!!paste0(letter, "_Cognostics") := Cogs)
 
-  if (complex) {
+  if (dataIsList) {
     returnTibble %<>%
-      left_join(tib, groupVariables)
-    return(list(returnTibble, data))
+      left_join(nestedTibble, groupVariables)
   }
-  else {
-    return(list(returnTibble, data))
-  }
+  return(list(returnTibble, data))
 }
 
 ######################################################################
 
-#' @title extract_nested_columns
-#' @import tidyverse purrr magrittr
+#' @title overtime_get
 #' @export
-#' @description **Designed to unnest a nested tibble, which is a list of lists**
+#' @description **Return the first element in list that contains [nestedTibble, tibble]**
 #'
-#' @param data Tibble/Data Frame with the following columns:
-#' * Account Number (unique identifier)
-#' * Date
-#' * Count
+#' @param data List with the following elements:
+#' * Nested Tibble
+#' * Tibble
 #'
-#' @return unnested tibble
+#' @return Unnested tibble
 #'
-#' @examples test
-extract_nested_columns <- function(data) {
+#' @examples NULL
+overtime_get <- function(data) {
   return(data[[1]])
 }
-

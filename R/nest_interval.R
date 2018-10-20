@@ -1,76 +1,81 @@
-#' @title make_nested_interval_columns
+#' @title overtime_by_interval
 #' @import tidyverse
 #' @export
-#' @description **Designed to create cognostics by certain interval/ratio in the past**
+#' @description **By time interval, designed to append on numerous summary statistics as columns.
+#' Then nest into a tibble with grouped variables in `data` being the identifier(s).
+#' Based on `intervalType` and `intervalLength` parameters, will aggregate
+#' and create columns accordingly**
+#' To allow further appending, the newly created nested tibble and the original data
+#' will be return in a list.
 #'
-#' @param nestTib Nested tibble with `AccountNumber`` as identifier
-#' @param rawData Tibble/Data Frame with the following columns:
-#' * Account Number (unique identifier)
-#' * Date
-#' * Count
-#' @param type Must be one of following strings:
+#' @param data Nested tibble or non-nested tibble with the following columns:
+#' * A unique identifier (usually made by a `group_by`` call)
+#' * A continious date column
+#' * A numeric column, one observation per date per unique identifier
+#' @param intervalType Must be one of following strings:
 #' * `years`
 #' * `months`
 #' * `weeks`
 #' * `days`
-#' @param interval Must be positive integer excluding zero
+#' @param intervalLength Must be positive integer excluding zero
 #'
-#' @return nested tibble
+#' @return List that contains [nestedTibble, tibble]
 #'
-#' @examples test
-make_nested_interval_columns <- function(complexObject, intervalType, intervalLength) {
+#' @examples NULL
+overtime_by_interval <- function(data, intervalType, intervalLength) {
 
-  if (is_bare_list(complexObject)) {
-    tib <- complexObject[[1]]
-    data <- complexObject[[2]]
+  if (is_bare_list(data)) {
+    tibble <- data[[1]]
+    data <- data[[2]]
 
     groupVariables <- group_vars(data)
     if (is_empty(groupVariables)) {
-      stop("append_nested_interval_columns HALTED: tibble must have at least one group_by variable")
+      stop("overtime_by_interval HALTED: data must have at least one group_by variable")
     }
 
-    twoList <- data %>%
-      prepare_nested_interval_columns(intervalType, intervalLength)
-    newTibble <- left_join(twoList[[1]], tib, groupVariables)
-    return(list(newTibble, data))
+    returnTibble <- data %>%
+      prepare_intervals(intervalType, intervalLength) %>%
+      overtime_get() %>%
+      left_join(tibble, groupVariables)
+
+    # newTibble <- left_join(tibbleAndDataList[[1]], tibble, groupVariables)
   }
   else {
-    groupVariables <- group_vars(complexObject)
+    groupVariables <- group_vars(data)
     if (is_empty(groupVariables)) {
-      stop("append_nested_interval_columns HALTED: tibble must have at least one group_by variable")
+      stop("overtime_by_interval HALTED: data must have at least one group_by variable")
     }
 
-    returnTibble <- complexObject %>%
-      prepare_nested_interval_columns(intervalType, intervalLength)
-
-    return(returnTibble)
+    returnTibble <- data %>%
+      prepare_intervals(intervalType, intervalLength)
   }
+
+  return(list(returnTibble, data))
 }
 
 ######################################################################
 
-#' @title prepare_nested_interval_columns
+#' @title prepare_intervals
 #' @import tidyverse lubridate
 #' @importFrom purrr map2
 #' @importFrom Hmisc capitalize
-#' @export
-#' @description **Designed to create cognostics by certain interval/ratio in the past**
+#' @description **Designed to prepare data by pulling out left, right, and ratio intervals**
 #'
-#' @param data Tibble/Data Frame with the following columns:
-#' * Account Number (unique identifier)
-#' * Date
-#' * Count
-#' @param type Must be one of following strings:
+#' @param data Non-nested tibble with the following columns:
+#' * A unique identifier (usually made by a `group_by`` call)
+#' * A continious date column
+#' * A numeric column, one observation per date per unique identifier
+#' @param intervalType Must be one of following strings:
 #' * `years`
 #' * `months`
 #' * `weeks`
 #' * `days`
-#' @param interval Must be positive integer excluding zero
+#' @param intervalLength Must be positive integer excluding zero
 #'
-#' @return nested joined tibble
+#' @return List that contains [nestedTibble, tibble]
 #'
-#' @examples test
-prepare_nested_interval_columns <- function(data, intervalType, intervalLength) {
+#' @examples NULL
+prepare_intervals <- function(data, intervalType, intervalLength) {
 
   date <- data %>%
     ungroup() %>%
@@ -81,7 +86,7 @@ prepare_nested_interval_columns <- function(data, intervalType, intervalLength) 
 
   groupVariables <- group_vars(data)
   if (is_empty(groupVariables)) {
-    stop("make_nested_interval_columns HALTED: tibble must have at least one group_by variable")
+    stop("prepare_intervals HALTED: data must have at least one group_by variable")
   }
 
   intervalData <- data %>%
@@ -93,11 +98,11 @@ prepare_nested_interval_columns <- function(data, intervalType, intervalLength) 
 
   rightData <- allowedData %>%
     filter(get(date) >= (max(get(date)) - invoke(intervalType, intervalLength))) %>%
-    do_nested_interval_columns_work(intervalType, intervalLength, "R")
+    do_interval_work(intervalType, intervalLength, "R")
 
   leftData <- allowedData %>%
     filter(get(date) < (max(get(date)) - invoke(intervalType, intervalLength))) %>%
-    do_nested_interval_columns_work(intervalType, intervalLength, "L")
+    do_interval_work(intervalType, intervalLength, "L")
 
   ratioData <- left_join(leftData, rightData, by = groupVariables)
 
@@ -111,7 +116,7 @@ prepare_nested_interval_columns <- function(data, intervalType, intervalLength) 
 
   intervalData %<>%
     filter(min(get(date)) == max(get(date)) - invoke(intervalType, intervalLength * 2)) %>%
-    do_nested_interval_columns_work(intervalType, intervalLength, "A")
+    do_interval_work(intervalType, intervalLength, "A")
 
   returnTibble <- left_join(intervalData, leftData, by = groupVariables) %>%
     left_join(., rightData, by = groupVariables) %>%
@@ -122,30 +127,29 @@ prepare_nested_interval_columns <- function(data, intervalType, intervalLength) 
 
 ######################################################################
 
-#' @title do_nested_interval_columns_work
+#' @title do_interval_work
 #' @import tidyverse Hmisc multidplyr lazyeval
-#' @export
 #' @description **Designed to create cognostics by certain interval/ratio in the past**
 #'
-#' @param data Tibble/Data Frame with the following columns:
-#' * Account Number (unique identifier)
-#' * Date
-#' * Count
+#' @param data Non-nested tibble with the following columns:
+#' * A unique identifier (usually made by a `group_by`` call)
+#' * A continious date column
+#' * A numeric column, one observation per date per unique identifier
 #' @param type Must be one of following strings:
 #' * `years`
 #' * `months`
 #' * `weeks`
 #' * `days`
-#' @param interval Must be positive integer excluding zero
+#' @param intervalLength Must be positive integer excluding zero
 #' @param divide Must be one of following strings:
 #' * `A`
 #' * `R`
 #' * `L`
 #'
-#' @return nested tibble
+#' @return List that contains [nestedTibble, tibble]
 #'
-#' @examples test
-do_nested_interval_columns_work <- function(data, type, interval, divide) {
+#' @examples NULL
+do_interval_work <- function(data, type, intervalLength, divide) {
 
   groupVariables <- group_vars(data)
   if (is_empty(groupVariables)) {
@@ -167,58 +171,58 @@ do_nested_interval_columns_work <- function(data, type, interval, divide) {
   data %>%
     ungroup() %>%
     partition_(as.lazy_dots(groupVariables)) %>%
-    summarise(!!paste0(letter, interval, "_", divide, "_Count") := sum(count),
-              !!paste0(letter, interval, "_", divide, "_Mean") := mean(count),
-              !!paste0(letter, interval, "_", divide, "_Median") := median(count),
-              !!paste0(letter, interval, "_", divide, "_SD") := sd(count),
-              !!paste0(letter, interval, "_", divide, "_Max") := max(count),
-              !!paste0(letter, interval, "_", divide, "_Min") := min(count),
-              !!paste0(letter, interval, "_", divide, "_CV") := (sd(count) / mean(count)),
+    summarise(!!paste0(letter, intervalLength, "_", divide, "_Count") := sum(count),
+              !!paste0(letter, intervalLength, "_", divide, "_Mean") := mean(count),
+              !!paste0(letter, intervalLength, "_", divide, "_Median") := median(count),
+              !!paste0(letter, intervalLength, "_", divide, "_SD") := sd(count),
+              !!paste0(letter, intervalLength, "_", divide, "_Max") := max(count),
+              !!paste0(letter, intervalLength, "_", divide, "_Min") := min(count),
+              !!paste0(letter, intervalLength, "_", divide, "_CV") := (sd(count) / mean(count)),
 
               #######################################################################
 
-              #!!paste0(letter, interval, "_", divide, "_SLP") := (lm(count ~ as.numeric(get(date)),
+              #!!paste0(letter, intervalLength, "_", divide, "_SLP") := (lm(count ~ as.numeric(get(date)),
               #                                                       data = .)[["coefficients"]][2]),
-              !!paste0(letter, interval, "_", divide, "_OOC2") := (sum(count >= (mean(count) + (2 * sd(count))))),
-              !!paste0(letter, interval, "_", divide, "_OOC3") := (sum(count >= (mean(count) + (3 * sd(count))))),
+              !!paste0(letter, intervalLength, "_", divide, "_OOC2") := (sum(count >= (mean(count) + (2 * sd(count))))),
+              !!paste0(letter, intervalLength, "_", divide, "_OOC3") := (sum(count >= (mean(count) + (3 * sd(count))))),
 
               #######################################################################
 
-              !!paste0(letter, interval, "_", divide, "_P") := overtime::find_SignedSequence(count, 1),
-              !!paste0(letter, interval, "_", divide, "_N") := overtime::find_SignedSequence(count, -1),
-              !!paste0(letter, interval, "_", divide, "_Z") := overtime::find_SignedSequence(count, 0),
+              !!paste0(letter, intervalLength, "_", divide, "_P") := overtime::find_SignedSequence(count, 1),
+              !!paste0(letter, intervalLength, "_", divide, "_N") := overtime::find_SignedSequence(count, -1),
+              !!paste0(letter, intervalLength, "_", divide, "_Z") := overtime::find_SignedSequence(count, 0),
 
               #######################################################################
 
-              !!paste0(letter, interval, "_", divide, "_I") := overtime::find_LadderSequence(count, "I"),
-              !!paste0(letter, interval, "_", divide, "_D") := overtime::find_LadderSequence(count, "D"),
-              !!paste0(letter, interval, "_", divide, "_IP") := overtime::find_LadderSequence(count, "IP"),
-              !!paste0(letter, interval, "_", divide, "_DP") := overtime::find_LadderSequence(count, "DP"),
-              !!paste0(letter, interval, "_", divide, "_IN") := overtime::find_LadderSequence(count, "IN"),
-              !!paste0(letter, interval, "_", divide, "_DN") := overtime::find_LadderSequence(count, "DN")
+              !!paste0(letter, intervalLength, "_", divide, "_I") := overtime::find_LadderSequence(count, "I"),
+              !!paste0(letter, intervalLength, "_", divide, "_D") := overtime::find_LadderSequence(count, "D"),
+              !!paste0(letter, intervalLength, "_", divide, "_IP") := overtime::find_LadderSequence(count, "IP"),
+              !!paste0(letter, intervalLength, "_", divide, "_DP") := overtime::find_LadderSequence(count, "DP"),
+              !!paste0(letter, intervalLength, "_", divide, "_IN") := overtime::find_LadderSequence(count, "IN"),
+              !!paste0(letter, intervalLength, "_", divide, "_DN") := overtime::find_LadderSequence(count, "DN")
     ) %>%
     collect() %>%
     group_by_at(vars(groupVariables)) %>%
     nest(.key = "Cogs") %>%
-    rename(!!paste0(letter, interval, "_", divide, "_Cognostics") := Cogs)
+    rename(!!paste0(letter, intervalLength, "_", divide, "_Cognostics") := Cogs)
 }
 
 ######################################################################
 
-#' @title nest_interval_unnest
+#' @title overtime_unnest
 #' @import tidyverse purrr magrittr
 #' @export
 #' @description **Designed to unnest a nested tibble, which is a list of lists**
 #'
-#' @param data Tibble/Data Frame with the following columns:
-#' * Account Number (unique identifier)
-#' * Date
-#' * Count
+#' @param data Nested tibble or tibble with the following columns:
+#' * A unique identifier (usually made by a `group_by`` call)
+#' * A continious date column
+#' * A numeric column, one observation per date per unique identifier
 #'
-#' @return unnested tibble
+#' @return Unnested tibble
 #'
-#' @examples test
-nest_interval_unnest <- function(data) {
+#' @examples NULL
+overtime_unnest <- function(data) {
 
   data %>%
     modify_if(is_list, ~ modify_if(., is_null,
