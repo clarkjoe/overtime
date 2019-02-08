@@ -45,18 +45,18 @@ unnestedData <- nestedData %>%
 
 BOOM! It's that simple.
 
-### What it looks like
-
 -----
 
-#### nestedData
+## What it looks like
+
+### nestedData
 | AccountNumber | D_Cognostics    |
 | ------------- | --------------- |
 | A             | tibble [1 x 18] |
 | B             | tibble [1 x 18] |
 | C             | tibble [1 x 18] |
 
-#### unnestedData
+### unnestedData
 | AccountNumber | D_Count | D_Count | D_Count | D_Mean  | D_Median | D_SD | D_Max | D_Min | ... |
 | ------------- | ------- | ------- | ------- | ------- | -------- | ---- | ----- | ----- | --- |
 | A             | 13      | 13      | 13      | 4.33    | 5        | 3.06 | 7     | 1     | ... |
