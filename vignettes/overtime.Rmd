@@ -7,6 +7,7 @@ output: html_document
 ```{r setup, include=FALSE, warning=FALSE, message=FALSE, comment=FALSE, error=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(magrittr)
 library(overtime)
 library(DT)
 ```
@@ -39,11 +40,11 @@ The intent of overtime is to help machine learning developers generate lots of s
 The actual content of the package is smaller than most, but its scope of usability is a wide net. Below is a simple example:  
 
 ```{r, echo=TRUE, warning=FALSE, message=FALSE, comment=FALSE, error=FALSE}
-data <- readRDS('../data/rawData.rds')
+data <- readRDS('../data/rawData.rds') %>%
+  filter(Date >= "2015-07-27" & Date <= "2015-07-29", AccountNumber < "D")
 
 nestedData <- data %>%
   overtime_by("day") %>%
-  overtime_by_interval('days', 10) %>%
   overtime_get()
 
 unnestedData <- nestedData %>%
@@ -52,18 +53,18 @@ unnestedData <- nestedData %>%
 
 BOOM! It's that simple.
 
-## What it looks like
+### What it looks like
 
 -----
 
-### nestedData
+#### Nested Data
 
-```{r, echo=FALSE}
-glimpse(nestedData)
+```{r, echo=FALSE, warning=FALSE, message=FALSE, comment=FALSE, error=FALSE}
+datatable(nestedData)
 ```
 
-### unnestedData
+#### Unnested Data
 
-```{r, echo=FALSE}
-glimpse(unnestedData)
+```{r, echo=FALSE, warning=FALSE, message=FALSE, comment=FALSE, error=FALSE}
+datatable(unnestedData)
 ```
