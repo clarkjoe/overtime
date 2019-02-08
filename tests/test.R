@@ -1,14 +1,6 @@
 library(overtime)
-library(magrittr)
-library(multidplyr)
-library(lazyeval)
 library(tidyverse)
-library(lubridate)
-library(purrr)
-
-library(devtools)
-library(pkgdown)
-library(roxygen2)
+library(magrittr)
 
 data <- readRDS('./data/rawData.rds')
 
