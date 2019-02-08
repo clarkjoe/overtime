@@ -57,11 +57,13 @@ BOOM! It's that simple.
 | C             | tibble [1 x 18] |
 
 #### unnestedData
-| AccountNumber | D_Count | D_Mean  | D_Median | D_SD | D_Max | D_Min | ... |
-| ------------- | ------- | ------- | -------- | ---- | ----- | ----- | ... |
-| A             | 13      | 4.33    | 5        | 3.06 | 7     | 1     | ... |
-| B             | 10      | 3.33    | 4        | 2.08 | 5     | 1     | ... |
-| C             | 0       | 0       | 0        | 0    | 0     | 0     | ... |
+| AccountNumber | D_Count | D_Count | D_Count | D_Mean  | D_Median | D_SD | D_Max | D_Min | ... |
+| ------------- | ------- | ------- | ------- | ------- | -------- | ---- | ----- | ----- | --- |
+| A             | 13      | 13      | 13      | 4.33    | 5        | 3.06 | 7     | 1     | ... |
+| B             | 10      | 10      | 10      | 3.33    | 4        | 2.08 | 5     | 1     | ... |
+| C             | 0       | 0       | 0       | 0       | 0        | 0    | 0     | 0     | ... |
+
+-----
 
 ## Compatible data format
 Currently, only a specific data format works with overtime. Here is an example data format:
